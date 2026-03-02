@@ -1,0 +1,574 @@
+<html lang="vi"><head>
+    <meta charset="UTF-8">
+    <title>MindMap Pro - Zoom Indicator</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; background: #f8fafc; }
+        
+        .toolbar { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; background: white; padding: 10px 15px;
+            border-radius: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 200; align-items: center;
+        }
+        .divider { width: 1px; height: 18px; background: #cbd5e1; margin: 0 2px; }
+        
+        button { border: none; background: #f1f5f9; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-weight: 600; color: #475569; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        button:hover { background: #e2e8f0; }
+        .btn-icon { padding: 8px 12px; font-size: 16px; }
+        .btn-primary { background: #3b82f6; color: white; } .btn-primary:hover { background: #2563eb; }
+        .btn-success { background: #10b981; color: white; } .btn-success:hover { background: #059669; }
+        .btn-pdf { background: #ef4444; color: white; } .btn-pdf:hover { background: #dc2626; }
+        .btn-color { background: #f43f5e; color: white; } .btn-color:hover { background: #e11d48; }
+
+        #alignToolbar {
+            position: absolute; top: 70px; left: 50%; transform: translateX(-50%); display: none; 
+            gap: 5px; background: #1e293b; padding: 6px 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 199; align-items: center; white-space: nowrap;
+        }
+        #alignToolbar span { color: #f8fafc; font-size: 13px; font-weight: 600; margin-right: 5px; }
+        #alignToolbar button { background: transparent; color: #cbd5e1; padding: 4px 10px; border-radius: 15px; border: 1px solid #334155; font-size: 13px; }
+        #alignToolbar button:hover { background: #3b82f6; color: white; border-color: #3b82f6; }
+        #alignToolbar .divider { background: #475569; }
+
+        #nodeToolbar {
+            position: absolute; display: none; flex-direction: column; gap: 5px; background: #ffffff; padding: 8px;
+            border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.15); z-index: 150; border: 1px solid #e2e8f0;
+        }
+        .color-picker { display: flex; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; justify-content: center; }
+        .color-dot { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #cbd5e1; cursor: pointer; transition: transform 0.2s; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); }
+        .color-dot:hover { transform: scale(1.2); }
+        
+        .node-actions { display: flex; gap: 4px; }
+        .node-actions button { padding: 6px 10px; font-size: 13px; border-radius: 6px; background: transparent; color: #334155; }
+        .node-actions button:hover { background: #eff6ff; color: #3b82f6; }
+        .node-actions button.btn-danger:hover { background: #fef2f2; color: #ef4444; }
+
+        .controls { position: absolute; top: 15px; left: 15px; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); pointer-events: none; z-index: 100; font-size: 13px; line-height: 1.6; color: #334155; border: 1px solid #e2e8f0; }
+        kbd { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold; }
+        
+        #editArea { position: absolute; display: none; border: 2px solid #3b82f6; z-index: 1000; outline: none; resize: none; border-radius: 6px; background: white; padding: 10px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'Segoe UI', sans-serif; font-size: 14px; line-height: 20px; text-align: center; }
+        #noteArea { position: absolute; display: none; z-index: 1001; outline: none; border: 1px solid #fcd34d; border-left: 5px solid #f59e0b; border-radius: 6px; background: #fffbeb; padding: 12px; box-sizing: border-box; box-shadow: 0 10px 25px rgba(0,0,0,0.15); font-family: 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.6; color: #334155; resize: both; width: 240px; height: 120px; }
+        
+        /* GIAO DIỆN HIỂN THỊ ZOOM */
+        #zoomIndicator {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(255, 255, 255, 0.9); padding: 8px 16px;
+            border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            font-size: 14px; font-weight: 700; color: #475569;
+            border: 1px solid #e2e8f0; z-index: 100; pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+
+        @media print { .toolbar, #alignToolbar, #nodeToolbar, .controls, #noteArea, #zoomIndicator { display: none !important; } }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <button class="btn-icon" onclick="undo()" title="Hoàn tác (Ctrl+Z)">↶</button>
+    <button class="btn-icon" onclick="redo()" title="Làm lại (Ctrl+Y)">↷</button>
+    <button class="btn-icon" onclick="fitToScreen()" title="Vừa màn hình (Phím F)">⛶</button>
+    <div class="divider"></div>
+    <button class="btn-success" onclick="addRootNode()">🌟 Gốc Mới</button>
+    <button class="btn-color" id="btnAutoColor" onclick="toggleAutoColor()">🌈 Màu theo cấp</button>
+    <button onclick="clearAllColors()" title="Xóa toàn bộ màu sắc">⚪ Xóa màu</button>
+    <div class="divider"></div>
+    <button onclick="saveToLocal()" title="Ctrl+S">💾 Lưu Web</button>
+    <button onclick="exportFullHTML()">🌐 HTML</button>
+    <button onclick="exportSVG()">🎨 SVG</button>
+    <button class="btn-pdf" onclick="window.print()">📄 PDF</button>
+</div>
+
+<div id="alignToolbar" style="display: none;">
+    <span>Căn lề:</span>
+    <button onclick="alignNodes('left')">Trái</button>
+    <button onclick="alignNodes('centerX')">Giữa dọc</button>
+    <button onclick="alignNodes('top')">Trên</button>
+    <button onclick="alignNodes('centerY')">Giữa ngang</button>
+    <div class="divider"></div>
+    <button onclick="alignNodes('distributeX')">↔ Đều ngang</button>
+    <button onclick="alignNodes('distributeY')">↕ Đều dọc</button>
+</div>
+
+<div id="nodeToolbar" onmousedown="event.stopPropagation()" style="display: none; left: 718.484px; top: 613.231px; transform: translate(-50%, -100%);">
+    <div class="color-picker">
+        <div class="color-dot" style="background: #ffffff" onclick="changeColor('#ffffff')" title="Trắng"></div>
+        <div class="color-dot" style="background: #fecaca" onclick="changeColor('#fecaca')" title="Đỏ nhạt"></div>
+        <div class="color-dot" style="background: #fef08a" onclick="changeColor('#fef08a')" title="Vàng"></div>
+        <div class="color-dot" style="background: #bbf7d0" onclick="changeColor('#bbf7d0')" title="Xanh lá"></div>
+        <div class="color-dot" style="background: #bfdbfe" onclick="changeColor('#bfdbfe')" title="Xanh dương"></div>
+        <div class="color-dot" style="background: #e9d5ff" onclick="changeColor('#e9d5ff')" title="Tím"></div>
+    </div>
+    <div class="node-actions">
+        <button onclick="triggerEdit()" title="Sửa chữ">✏️ Sửa</button>
+        <button onclick="triggerAddChild()" title="Thêm nhánh">➕ Thêm</button>
+        <button onclick="triggerDuplicate()" title="Nhân bản cụm này">📋 Bản sao</button>
+        <button class="btn-danger" onclick="triggerDelete()" title="Xóa">🗑️ Xóa</button>
+    </div>
+</div>
+
+<div class="controls">
+    <strong>Điều hướng:</strong><br>
+    • Cuộn chuột: Phóng to/Thu nhỏ<br>
+    • <kbd>Space</kbd> + Kéo chuột: Pan màn hình<br>
+    • Phím <kbd>F</kbd>: Căn vừa màn hình (Fit)
+</div>
+
+<div id="zoomIndicator">70%</div>
+
+<textarea id="editArea" style="display: none; left: 1120.45px; top: 271.505px; width: 132px; height: 80px; font-size: 15.4px;"></textarea>
+<textarea id="noteArea" placeholder="Nhập nội dung ghi chú vào đây..." style="display: none; left: 576.173px; top: 469.617px;"></textarea>
+<canvas id="canvas" width="1920" height="953" style="cursor: default;"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const editArea = document.getElementById('editArea');
+    const noteArea = document.getElementById('noteArea');
+    const alignToolbar = document.getElementById('alignToolbar');
+    const nodeToolbar = document.getElementById('nodeToolbar');
+    const btnAutoColor = document.getElementById('btnAutoColor');
+    const zoomIndicator = document.getElementById('zoomIndicator'); // Gọi phần tử hiển thị Zoom
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let nodes = JSON.parse(localStorage.getItem('mindmap_data')) || [
+        { id: 1, text: "Chủ đề chính", note: "", bgColor: "#ffffff", isCollapsed: false, x: canvas.width/2 - 80, y: canvas.height/2 - 30, w: 160, h: 60, parentId: null }
+    ];
+    
+    let history = [], redoStack = [];
+    let selectedNodes = [], initialSelectedNodes = []; 
+    let editingNode = null, resizingNode = null, activeNoteNode = null;
+    let isDraggingNodes = false, isSelecting = false;
+    let selectionBox = { startX: 0, startY: 0, endX: 0, endY: 0 };
+    let viewX = 0, viewY = 0, scale = 1;
+    let isPanning = false, isSpaceDown = false, lastMouseX = 0, lastMouseY = 0;
+    
+    let isAutoColorActive = false;
+
+    // --- HÀM CẬP NHẬT CHỈ SỐ ZOOM ---
+    function updateZoomIndicator() {
+        // Đổi tỷ lệ scale (0.3 -> 2.5) thành % (30% -> 250%)
+        zoomIndicator.innerText = Math.round(scale * 100) + '%';
+    }
+
+    // --- TÍNH NĂNG VỪA MÀN HÌNH (FIT TO SCREEN) ---
+    function fitToScreen() {
+        const visibleNodes = getVisibleNodes();
+        if (visibleNodes.length === 0) return;
+        
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        visibleNodes.forEach(n => {
+            if (n.x < minX) minX = n.x;
+            if (n.y < minY) minY = n.y;
+            if (n.x + n.w > maxX) maxX = n.x + n.w;
+            if (n.y + n.h > maxY) maxY = n.y + n.h;
+        });
+
+        minX -= 60; minY -= 60; maxX += 60; maxY += 60;
+        const mapW = maxX - minX;
+        const mapH = maxY - minY;
+        const scaleX = canvas.width / mapW;
+        const scaleY = canvas.height / mapH;
+        
+        scale = Math.min(scaleX, scaleY, 1.5);
+        scale = Math.max(scale, 0.3);
+        
+        viewX = (canvas.width - mapW * scale) / 2 - minX * scale;
+        viewY = (canvas.height - mapH * scale) / 2 - minY * scale;
+        
+        updateZoomIndicator(); // Cập nhật lại số % khi bấm Fit
+        draw();
+    }
+
+    // --- THUẬT TOÁN MÀU SẮC (TÔ MÀU) ---
+    function changeColor(colorHex) {
+        if (selectedNodes.length > 0) {
+            saveState(); selectedNodes.forEach(n => n.bgColor = colorHex);
+            isAutoColorActive = false; btnAutoColor.innerHTML = "🌈 Màu theo cấp";
+            saveToLocal(); draw();
+        }
+    }
+
+    function getNodeDepth(nodeId) {
+        let depth = 0; let current = nodes.find(n => n.id === nodeId);
+        while (current && current.parentId) { depth++; current = nodes.find(n => n.id === current.parentId); }
+        return depth;
+    }
+
+    function toggleAutoColor() {
+        if (nodes.length === 0) return;
+        saveState(); isAutoColorActive = !isAutoColorActive;
+        if (isAutoColorActive) {
+            btnAutoColor.innerHTML = "🚫 Tắt màu cấp";
+            const palettes = ['#fef08a', '#99f6e4', '#fbcfe8', '#fed7aa', '#e9d5ff', '#bfdbfe', '#ffffff'];
+            nodes.forEach(n => { const depth = getNodeDepth(n.id); n.bgColor = palettes[depth % palettes.length]; });
+        } else {
+            btnAutoColor.innerHTML = "🌈 Màu theo cấp"; nodes.forEach(n => n.bgColor = "#ffffff"); 
+        } saveToLocal(); draw();
+    }
+
+    function clearAllColors() {
+        if (nodes.length === 0) return;
+        saveState(); isAutoColorActive = false; btnAutoColor.innerHTML = "🌈 Màu theo cấp";
+        nodes.forEach(n => n.bgColor = "#ffffff"); saveToLocal(); draw();
+    }
+
+    // --- THUẬT TOÁN KIỂM TRA HIỂN THỊ (COLLAPSE LOGIC) ---
+    function isNodeVisible(node) {
+        if (!node.parentId) return true;
+        const parent = nodes.find(n => n.id === node.parentId);
+        if (!parent) return true;
+        if (parent.isCollapsed) return false;
+        return isNodeVisible(parent);
+    }
+    function getVisibleNodes() { return nodes.filter(n => isNodeVisible(n)); }
+
+    // --- LƯU TRỮ VÀ XUẤT FILE ---
+    function saveState() { history.push(JSON.stringify(nodes)); if (history.length > 50) history.shift(); redoStack = []; }
+    function undo() { if (history.length > 0) { redoStack.push(JSON.stringify(nodes)); nodes = JSON.parse(history.pop()); selectedNodes = []; draw(); } }
+    function redo() { if (redoStack.length > 0) { history.push(JSON.stringify(nodes)); nodes = JSON.parse(redoStack.pop()); selectedNodes = []; draw(); } }
+    function saveToLocal() { localStorage.setItem('mindmap_data', JSON.stringify(nodes)); }
+
+    function exportFullHTML() {
+        const currentHTML = document.documentElement.outerHTML;
+        const dataSnippet = `let nodes = ${JSON.stringify(nodes)};`;
+        const updatedHTML = currentHTML.replace(/let nodes = JSON\.parse.*?\];/, dataSnippet);
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([updatedHTML], { type: 'text/html' })); a.download = 'MindMap.html'; a.click();
+    }
+    
+    function getWrappedLines(ctx, text, maxWidth) {
+        let lines = []; text.split('\n').forEach(rawLine => {
+            let words = rawLine.split(' '); let currentLine = words[0] || "";
+            for (let i = 1; i < words.length; i++) {
+                if (ctx.measureText(currentLine + " " + words[i]).width < maxWidth) currentLine += " " + words[i];
+                else { lines.push(currentLine); currentLine = words[i]; }
+            } lines.push(currentLine);
+        }); return lines;
+    }
+
+    function exportSVG() {
+        const visibleNodes = getVisibleNodes();
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}"><defs><pattern id="dots" x="${viewX}" y="${viewY}" width="${20*scale}" height="${20*scale}" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="${1.5*scale}" fill="#cbd5e1" /></pattern></defs><rect width="100%" height="100%" fill="url(#dots)"/><g transform="translate(${viewX}, ${viewY}) scale(${scale})">`;
+        
+        visibleNodes.forEach(node => { if (node.parentId) { const p = visibleNodes.find(n => n.id === node.parentId); if (p) { const x1 = p.x + p.w, y1 = p.y + p.h/2, x2 = node.x, y2 = node.y + node.h/2, cp1x = x1 + (x2 - x1)/2; svg += `<path d="M ${x1} ${y1} C ${cp1x} ${y1}, ${cp1x} ${y2}, ${x2} ${y2}" stroke="#cbd5e1" stroke-width="2" fill="none" />`; } } });
+        ctx.font = "500 14px 'Segoe UI', sans-serif";
+        visibleNodes.forEach(node => {
+            const lines = getWrappedLines(ctx, node.text, node.w - 20); const calculatedHeight = Math.max(40, lines.length * 20 + 20);
+            const bgColor = node.bgColor || "#ffffff";
+            svg += `<rect x="${node.x}" y="${node.y}" width="${node.w}" height="${calculatedHeight}" rx="10" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1" />`;
+            lines.forEach((line, i) => { svg += `<text x="${node.x + node.w/2}" y="${node.y + (calculatedHeight/2) - ((lines.length-1)*10) + (i*20) + 5}" font-family="Segoe UI, sans-serif" font-size="14" font-weight="500" text-anchor="middle" fill="#1e293b">${line}</text>`; });
+        });
+        svg += `</g></svg>`;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([svg], {type: 'image/svg+xml'})); a.download = 'MindMap.svg'; a.click();
+    }
+
+    // --- HÀM TÍNH NĂNG ---
+    function addRootNode() {
+        saveState(); const centerX = (canvas.width / 2 - viewX) / scale; const centerY = (canvas.height / 2 - viewY) / scale;
+        const newNode = { id: Date.now(), text: "Chủ đề Gốc mới", note: "", bgColor: isAutoColorActive ? "#fef08a" : "#ffffff", isCollapsed: false, x: centerX - 80, y: centerY - 30, w: 160, h: 60, parentId: null };
+        nodes.push(newNode); selectedNodes = [newNode]; draw(); saveToLocal();
+    }
+
+    function triggerEdit() {
+        if (selectedNodes.length === 1) {
+            editingNode = selectedNodes[0]; editArea.style.display = 'block';
+            editArea.style.left = (editingNode.x * scale + viewX) + 'px'; editArea.style.top = (editingNode.y * scale + viewY) + 'px';
+            editArea.style.width = (editingNode.w * scale) + 'px'; editArea.style.height = (editingNode.h * scale) + 'px';
+            editArea.style.fontSize = (14 * scale) + 'px'; editArea.value = editingNode.text; 
+            editArea.focus(); editArea.select(); draw();
+        }
+    }
+
+    function triggerAddChild() {
+        if (selectedNodes.length === 1) {
+            saveState(); const parent = selectedNodes[0];
+            parent.isCollapsed = false; 
+            
+            let newColor = "#ffffff";
+            if (isAutoColorActive) {
+                const palettes = ['#fef08a', '#99f6e4', '#fbcfe8', '#fed7aa', '#e9d5ff', '#bfdbfe', '#ffffff'];
+                const childDepth = getNodeDepth(parent.id) + 1;
+                newColor = palettes[childDepth % palettes.length];
+            }
+
+            const newNode = { id: Date.now(), text: "Ý tưởng mới", note: "", bgColor: newColor, isCollapsed: false, x: parent.x + parent.w + 60, y: parent.y, w: 120, h: 40, parentId: parent.id };
+            nodes.push(newNode); selectedNodes = [newNode]; draw(); saveToLocal();
+        }
+    }
+
+    function triggerDelete() {
+        if (selectedNodes.length > 0) {
+            saveState(); const toDel = new Set();
+            const findC = (id) => { toDel.add(id); nodes.filter(n => n.parentId === id).forEach(n => findC(n.id)); };
+            selectedNodes.forEach(sn => findC(sn.id));
+            nodes = nodes.filter(n => !toDel.has(n.id)); selectedNodes = []; draw(); saveToLocal();
+        }
+    }
+
+    function duplicateTree(targetNode, offset = 60) {
+        const idMap = {}; const toCopy = [];
+        const findC = (nodeId) => { const n = nodes.find(x => x.id === nodeId); if(n) { toCopy.push(n); nodes.filter(c => c.parentId === nodeId).forEach(c => findC(c.id)); } };
+        findC(targetNode.id);
+        const newNodes = toCopy.map(n => {
+            const newId = Date.now() + Math.random(); idMap[n.id] = newId;
+            return { ...n, id: newId, x: n.x + offset, y: n.y + offset };
+        });
+        newNodes.forEach(n => {
+            if (n.parentId === targetNode.parentId) n.parentId = targetNode.parentId; 
+            else n.parentId = idMap[n.parentId]; 
+        });
+        nodes.push(...newNodes); return newNodes[0]; 
+    }
+
+    function triggerDuplicate() {
+        if (selectedNodes.length === 1) { saveState(); const newRoot = duplicateTree(selectedNodes[0]); selectedNodes = [newRoot]; draw(); saveToLocal(); }
+    }
+
+    function alignNodes(type) {
+        if (selectedNodes.length < 2) return; saveState(); 
+        if (type === 'left') { const minX = Math.min(...selectedNodes.map(n => n.x)); selectedNodes.forEach(n => n.x = minX); } 
+        else if (type === 'centerX') { const avgX = selectedNodes.reduce((sum, n) => sum + n.x + n.w / 2, 0) / selectedNodes.length; selectedNodes.forEach(n => n.x = avgX - n.w / 2); } 
+        else if (type === 'top') { const minY = Math.min(...selectedNodes.map(n => n.y)); selectedNodes.forEach(n => n.y = minY); } 
+        else if (type === 'centerY') { const avgY = selectedNodes.reduce((sum, n) => sum + n.y + n.h / 2, 0) / selectedNodes.length; selectedNodes.forEach(n => n.y = avgY - n.h / 2); } 
+        else if (type === 'distributeX' && selectedNodes.length > 2) {
+            let sorted = [...selectedNodes].sort((a, b) => a.x - b.x); let totalW = sorted.reduce((sum, n) => sum + n.w, 0);
+            let gap = ((sorted[sorted.length - 1].x + sorted[sorted.length - 1].w - sorted[0].x) - totalW) / (sorted.length - 1);
+            let currentX = sorted[0].x + sorted[0].w + gap;
+            for (let i = 1; i < sorted.length - 1; i++) { sorted[i].x = currentX; currentX += sorted[i].w + gap; }
+        } else if (type === 'distributeY' && selectedNodes.length > 2) {
+            let sorted = [...selectedNodes].sort((a, b) => a.y - b.y); let totalH = sorted.reduce((sum, n) => sum + n.h, 0);
+            let gap = ((sorted[sorted.length - 1].y + sorted[sorted.length - 1].h - sorted[0].y) - totalH) / (sorted.length - 1);
+            let currentY = sorted[0].y + sorted[0].h + gap;
+            for (let i = 1; i < sorted.length - 1; i++) { sorted[i].y = currentY; currentY += sorted[i].h + gap; }
+        } draw(); saveToLocal();
+    }
+
+    // --- VẼ CANVAS CHÍNH ---
+    function drawGrid() {
+        const gridSize = 20; const left = -viewX / scale, top = -viewY / scale; const right = canvas.width / scale - viewX / scale, bottom = canvas.height / scale - viewY / scale;
+        ctx.fillStyle = "#cbd5e1"; 
+        for (let x = Math.floor(left/gridSize)*gridSize; x <= right; x += gridSize) {
+            for (let y = Math.floor(top/gridSize)*gridSize; y <= bottom; y += gridSize) { ctx.beginPath(); ctx.arc(x, y, 1.5 / scale, 0, Math.PI * 2); ctx.fill(); }
+        }
+    }
+
+    function drawCurvedArrow(ctx, fromX, fromY, toX, toY) {
+        const cpX = fromX + (toX - fromX) / 2; ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.bezierCurveTo(cpX, fromY, cpX, toY, toX, toY); ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 2 / scale; ctx.stroke();
+        const angle = Math.atan2(toY - fromY, toX - cpX); const headlen = 10 / scale;
+        ctx.beginPath(); ctx.moveTo(toX, toY); ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI/6), toY - headlen * Math.sin(angle - Math.PI/6)); ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI/6), toY - headlen * Math.sin(angle + Math.PI/6)); ctx.closePath(); ctx.fillStyle = "#cbd5e1"; ctx.fill();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save(); ctx.translate(viewX, viewY); ctx.scale(scale, scale);
+        drawGrid(); 
+        
+        const visibleNodes = getVisibleNodes(); 
+
+        visibleNodes.forEach(node => { if (node.parentId) { const p = visibleNodes.find(n => n.id === node.parentId); if (p) drawCurvedArrow(ctx, p.x + p.w, p.y + p.h/2, node.x, node.y + node.h/2); }});
+        
+        ctx.font = "500 14px 'Segoe UI', sans-serif";
+        visibleNodes.forEach(node => {
+            const isSelected = selectedNodes.includes(node);
+            const lines = getWrappedLines(ctx, node.text, node.w - 20); node.h = Math.max(40, lines.length * 20 + 20); 
+
+            ctx.shadowColor = "rgba(0,0,0,0.05)"; ctx.shadowBlur = 10/scale; ctx.shadowOffsetY = 4/scale;
+            
+            ctx.fillStyle = node.bgColor || "#ffffff";
+            ctx.beginPath(); ctx.roundRect(node.x, node.y, node.w, node.h, 10); ctx.fill();
+            
+            ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+            ctx.strokeStyle = isSelected ? "#3b82f6" : "#cbd5e1"; 
+            ctx.lineWidth = isSelected ? 2.5/scale : 1/scale; 
+            ctx.stroke();
+            
+            ctx.fillStyle = "#1e293b"; ctx.textAlign = "center";
+            lines.forEach((line, i) => { ctx.fillText(line, node.x + node.w/2, node.y + (node.h/2) - ((lines.length-1)*10) + (i*20) + 5); });
+            
+            if (isSelected) { ctx.fillStyle = "#3b82f6"; ctx.beginPath(); ctx.arc(node.x + node.w, node.y + node.h, 6/scale, 0, Math.PI*2); ctx.fill(); }
+
+            const hasChildren = nodes.some(n => n.parentId === node.id);
+            if (hasChildren) {
+                const btnX = node.x + node.w; const btnY = node.y + node.h / 2;
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(btnX, btnY, 8/scale, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 1.5/scale; ctx.stroke();
+                ctx.fillStyle = "#3b82f6"; ctx.font = `bold ${12/scale}px monospace`; ctx.textBaseline = "middle"; 
+                ctx.fillText(node.isCollapsed ? "+" : "-", btnX, btnY + 1/scale);
+            }
+
+            if (isSelected) {
+                const iconX = node.x + node.w; const iconY = node.y;
+                let bgIcon = (node.note && node.note.trim() !== "") ? "#10b981" : "#f59e0b"; 
+                if (activeNoteNode === node) bgIcon = "#3b82f6"; 
+                
+                ctx.fillStyle = bgIcon; ctx.beginPath(); ctx.arc(iconX, iconY, 10/scale, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "white"; ctx.font = `bold ${12/scale}px sans-serif`; ctx.textBaseline = "middle"; 
+                ctx.fillText("!", iconX, iconY + 1/scale);
+            }
+        });
+
+        if (isSelecting) {
+            ctx.fillStyle = "rgba(59, 130, 246, 0.1)"; ctx.strokeStyle = "rgba(59, 130, 246, 0.8)"; ctx.lineWidth = 1 / scale; ctx.setLineDash([5 / scale, 5 / scale]);
+            ctx.beginPath(); ctx.rect(Math.min(selectionBox.startX, selectionBox.endX), Math.min(selectionBox.startY, selectionBox.endY), Math.abs(selectionBox.startX - selectionBox.endX), Math.abs(selectionBox.startY - selectionBox.endY));
+            ctx.fill(); ctx.stroke(); ctx.setLineDash([]); 
+        }
+        ctx.restore();
+
+        alignToolbar.style.display = selectedNodes.length > 1 ? 'flex' : 'none';
+        
+        if (selectedNodes.length >= 1 && !isSelecting && !isDraggingNodes && !resizingNode && editArea.style.display !== 'block') {
+            const n = selectedNodes[0]; 
+            nodeToolbar.style.display = 'flex';
+            nodeToolbar.style.left = (n.x * scale + viewX + (n.w * scale) / 2) + 'px';
+            nodeToolbar.style.top = (n.y * scale + viewY - 15) + 'px';
+            nodeToolbar.style.transform = 'translate(-50%, -100%)';
+        } else {
+            nodeToolbar.style.display = 'none';
+        }
+    }
+
+    // --- TƯƠNG TÁC CHUỘT ---
+    function screenToWorld(sx, sy) { return { x: (sx - viewX)/scale, y: (sy - viewY)/scale }; }
+    
+    function getInteraction(mx, my) {
+        const world = screenToWorld(mx, my);
+        const visibleNodes = getVisibleNodes(); 
+
+        for (let i = visibleNodes.length - 1; i >= 0; i--) {
+            const n = visibleNodes[i]; 
+            const hasChildren = nodes.some(c => c.parentId === n.id);
+            if (hasChildren) {
+                const dxCol = world.x - (n.x + n.w), dyCol = world.y - (n.y + n.h/2);
+                if (Math.sqrt(dxCol*dxCol + dyCol*dyCol) < 10/scale) return { type: 'collapse', node: n };
+            }
+
+            if (selectedNodes.includes(n)) {
+                const dxNote = world.x - (n.x + n.w), dyNote = world.y - n.y;
+                if (Math.sqrt(dxNote*dxNote + dyNote*dyNote) < 12/scale) return { type: 'note', node: n };
+            }
+
+            const dxRes = world.x - (n.x + n.w), dyRes = world.y - (n.y + n.h);
+            if (Math.sqrt(dxRes*dxRes + dyRes*dyRes) < 15/scale) return { type: 'resize', node: n };
+            
+            if (world.x >= n.x && world.x <= n.x + n.w && world.y >= n.y && world.y <= n.y + n.h) return { type: 'drag', node: n };
+        } return null;
+    }
+
+    function toggleNoteArea(node) {
+        if (activeNoteNode === node) { finishNoteEditing(); } 
+        else {
+            if (editArea.style.display === 'block') finishEditing();
+            if (activeNoteNode) finishNoteEditing(); 
+            activeNoteNode = node; noteArea.value = node.note || ""; noteArea.style.display = 'block';
+            noteArea.style.left = (node.x * scale + viewX + (node.w * scale) + 20) + 'px';
+            noteArea.style.top = (node.y * scale + viewY - 10) + 'px';
+            noteArea.focus();
+        }
+    }
+
+    function finishNoteEditing() {
+        if (noteArea.style.display !== 'block') return;
+        if (activeNoteNode) { activeNoteNode.note = noteArea.value; saveToLocal(); }
+        noteArea.style.display = 'none'; activeNoteNode = null; draw();
+    }
+    noteArea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); finishNoteEditing(); canvas.focus(); } });
+
+    function finishEditing() {
+        if (editArea.style.display !== 'block') return;
+        if (editingNode) { editingNode.text = editArea.value; saveToLocal(); }
+        editArea.style.display = 'none'; editingNode = null; draw();
+    }
+
+    editArea.addEventListener('blur', finishEditing);
+    editArea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); finishEditing(); canvas.focus(); } });
+    editArea.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; });
+    
+    canvas.addEventListener('dblclick', (e) => { const inter = getInteraction(e.clientX, e.clientY); if (inter && inter.type === 'drag') triggerEdit(); });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault(); const world = screenToWorld(e.clientX, e.clientY);
+        
+        scale = Math.min(Math.max(0.3, scale + (e.deltaY < 0 ? 0.05 : -0.05)), 2.5);
+        viewX = e.clientX - world.x * scale; viewY = e.clientY - world.y * scale; 
+        
+        if (noteArea.style.display === 'block') finishNoteEditing();
+        
+        updateZoomIndicator(); // Cập nhật phần trăm khi lăn chuột
+        draw();
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+        const inter = getInteraction(e.clientX, e.clientY);
+        
+        if (inter && inter.type === 'collapse') {
+            saveState(); inter.node.isCollapsed = !inter.node.isCollapsed;
+            selectedNodes = selectedNodes.filter(n => isNodeVisible(n));
+            draw(); saveToLocal(); return; 
+        }
+
+        if (inter && inter.type === 'note') { toggleNoteArea(inter.node); draw(); return; }
+
+        if (editArea.style.display === 'block') finishEditing();
+        if (noteArea.style.display === 'block') finishNoteEditing();
+
+        lastMouseX = e.clientX; lastMouseY = e.clientY;
+        if (isSpaceDown || e.button === 1) { isPanning = true; canvas.style.cursor = 'grabbing'; return; }
+        
+        if (inter) {
+            if (inter.type === 'resize') { resizingNode = inter.node; if (!selectedNodes.includes(inter.node)) selectedNodes = [inter.node]; } 
+            else {
+                isDraggingNodes = true;
+                if (e.shiftKey) { const idx = selectedNodes.indexOf(inter.node); if (idx > -1) selectedNodes.splice(idx, 1); else selectedNodes.push(inter.node); } 
+                else { if (!selectedNodes.includes(inter.node)) selectedNodes = [inter.node]; }
+            }
+            saveState();
+        } else { 
+            if (!e.shiftKey) selectedNodes = []; 
+            isSelecting = true; initialSelectedNodes = [...selectedNodes]; 
+            const worldPos = screenToWorld(e.clientX, e.clientY);
+            selectionBox.startX = worldPos.x; selectionBox.startY = worldPos.y; selectionBox.endX = worldPos.x; selectionBox.endY = worldPos.y;
+        } draw();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        const dx = e.clientX - lastMouseX, dy = e.clientY - lastMouseY;
+        if (isPanning) { viewX += dx; viewY += dy; }
+        else if (isSelecting) {
+            const worldPos = screenToWorld(e.clientX, e.clientY); selectionBox.endX = worldPos.x; selectionBox.endY = worldPos.y;
+            const x1 = Math.min(selectionBox.startX, selectionBox.endX), y1 = Math.min(selectionBox.startY, selectionBox.endY);
+            const x2 = Math.max(selectionBox.startX, selectionBox.endX), y2 = Math.max(selectionBox.startY, selectionBox.endY);
+            
+            const visibleNodes = getVisibleNodes();
+            const boxSelection = visibleNodes.filter(n => n.x < x2 && n.x + n.w > x1 && n.y < y2 && n.y + n.h > y1);
+            
+            if (e.shiftKey) selectedNodes = [...new Set([...initialSelectedNodes, ...boxSelection])]; else selectedNodes = boxSelection;
+        }
+        else if (isDraggingNodes) { selectedNodes.forEach(n => { n.x += dx/scale; n.y += dy/scale; }); }
+        else if (resizingNode) { resizingNode.w = Math.max(100, resizingNode.w + dx/scale); }
+        lastMouseX = e.clientX; lastMouseY = e.clientY;
+        if (isPanning || isSelecting || isDraggingNodes || resizingNode) draw();
+    });
+
+    window.addEventListener('mouseup', () => { isDraggingNodes = isSelecting = isPanning = false; resizingNode = null; canvas.style.cursor = isSpaceDown ? 'grab' : 'default'; saveToLocal(); draw(); });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') { isSpaceDown = true; canvas.style.cursor = 'grab'; if (e.target === document.body) e.preventDefault(); }
+        if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveToLocal(); }
+        if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+        if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+        if (editArea.style.display === 'block' || noteArea.style.display === 'block') return; 
+        
+        if (e.key.toLowerCase() === 'f') { e.preventDefault(); fitToScreen(); }
+        
+        if (e.key.toLowerCase() === 'n' && selectedNodes.length === 1) triggerAddChild();
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodes.length > 0) triggerDelete();
+    });
+
+    window.addEventListener('keyup', (e) => { if (e.code === 'Space') { isSpaceDown = false; canvas.style.cursor = 'default'; } });
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; draw(); });
+
+    // Khởi tạo lần đầu
+    updateZoomIndicator();
+    draw(); 
+</script>
+
+</body></html>
